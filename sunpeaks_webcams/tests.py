@@ -251,7 +251,7 @@ class ManifestTests(SimpleTestCase):
         self.assertEqual(manifest['network'], 'outbound')
         self.assertEqual(manifest['lifecycle'], 'on_demand')
         self.assertEqual(manifest['memory_mb'], 96)
-        self.assertEqual(manifest['provides'], {'backgrounds': 'sunpeaks_webcams.provides.backgrounds'})
+        self.assertEqual(manifest['provides'], ['backgrounds'])
 
 
 class CheckForNewWebcamsTests(TestCase):
@@ -305,7 +305,7 @@ class CheckForNewWebcamsTests(TestCase):
             except Exception as e:
                 self.fail(f"Could not parse last_updated '{last_updated_text}' for '{camera_name}': {e}")
 
-            delta = now_pacific - pacific.localize(parsed_last_updated)
+            delta = now_pacific - parsed_last_updated.replace(tzinfo=pacific)
             self.assertLessEqual(delta, timedelta(minutes=15),
                 f"Last updated for '{camera_name}' is more than 15 minutes old: {parsed_last_updated} (delta: {delta})")
 
