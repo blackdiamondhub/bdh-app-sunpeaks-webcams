@@ -11,7 +11,7 @@ import re
 
 from django.test import TestCase
 from dateutil import parser as dt_parser
-import pytz
+from zoneinfo import ZoneInfo
 from tests.selenium_helpers import get_chrome_options
 
 import io
@@ -240,6 +240,20 @@ class WebcamEndpointTests(TestCase):
         self.assertEqual(spec.provides, {'backgrounds': 'sunpeaks_webcams.provides.backgrounds'})
 
 
+class ManifestTests(SimpleTestCase):
+    def test_manifest_is_least_privilege_container_app(self):
+        from bdh_sdk.testing import assert_plugin_importable
+        from sunpeaks_webcams.plugin import spec
+        assert_plugin_importable("sunpeaks_webcams.plugin")
+        manifest = spec.manifest()
+        self.assertEqual(manifest['api_version'], 2)
+        self.assertEqual(manifest['permissions'], [])
+        self.assertEqual(manifest['network'], 'outbound')
+        self.assertEqual(manifest['lifecycle'], 'on_demand')
+        self.assertEqual(manifest['memory_mb'], 96)
+        self.assertEqual(manifest['provides'], ['backgrounds'])
+
+
 class CheckForNewWebcamsTests(TestCase):
     def test_check_for_new_webcams_data(self):
         # Sun Peaks adds, renames and removes (seasonal) cameras, so don't pin
@@ -249,7 +263,7 @@ class CheckForNewWebcamsTests(TestCase):
         self.assertGreater(len(webcams), 0, "No webcams found")
 
         image_prefix = 'https://www.sunpeaksresort.com/sites/default/files/spr_website_data/webcams/'
-        pacific = pytz.timezone('America/Los_Angeles')
+        pacific = ZoneInfo('America/Los_Angeles')
         now_pacific = datetime.now(pacific)
 
         for webcam in webcams:
@@ -291,7 +305,7 @@ class CheckForNewWebcamsTests(TestCase):
             except Exception as e:
                 self.fail(f"Could not parse last_updated '{last_updated_text}' for '{camera_name}': {e}")
 
-            delta = now_pacific - pacific.localize(parsed_last_updated)
+            delta = now_pacific - parsed_last_updated.replace(tzinfo=pacific)
             self.assertLessEqual(delta, timedelta(minutes=15),
                 f"Last updated for '{camera_name}' is more than 15 minutes old: {parsed_last_updated} (delta: {delta})")
 
