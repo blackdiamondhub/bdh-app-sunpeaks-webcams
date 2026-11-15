@@ -1,4 +1,5 @@
 from bdh_sdk import PluginSpec, Tile
+from bdh_sdk.plugins import LIFECYCLE_ON_DEMAND, NETWORK_OUTBOUND
 from bdh_sdk.provides import BACKGROUNDS
 
 spec = PluginSpec(
@@ -16,4 +17,12 @@ spec = PluginSpec(
             order=30,
         ),
     ),
+    api_version=2,
+    # Uses no hub services: it only scrapes the resort's public webcam page.
+    permissions=(),
+    # Fetches the webcam page and images from sunpeaksresort.com.
+    network=NETWORK_OUTBOUND,
+    # The feed is fetched lazily on request, so nothing runs in the background.
+    lifecycle=LIFECYCLE_ON_DEMAND,
+    memory_mb=96,
 )

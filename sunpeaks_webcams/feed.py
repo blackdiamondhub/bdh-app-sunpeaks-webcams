@@ -140,7 +140,12 @@ def make_thumbnail(data, width=THUMB_WIDTH):
     from PIL import Image
 
     with Image.open(io.BytesIO(data)) as im:
-        im = im.convert('RGB')
+        # Let the JPEG decoder scale down by 1/2, 1/4 or 1/8 while decoding,
+        # so a 4K original never sits in memory at full size.
+        # (Pillow keeps each side at least as big as asked, so only bound the width.)
+        im.draft('RGB', (width, 1))
+        if im.mode != 'RGB':
+            im = im.convert('RGB')
         im.thumbnail((width, width * 4))
         out = io.BytesIO()
         im.save(out, 'JPEG', quality=THUMB_QUALITY, optimize=True, progressive=True)
@@ -157,6 +162,9 @@ class WebcamFeed:
         self._last_modified = None
         self._next_check = 0.0
         self._thumb_lock = threading.Lock()
+        # Render one thumbnail at a time: the page asks for all of them at
+        # once, and the app runs under a tight memory limit.
+        self._render_lock = threading.Lock()
         self._thumbs = OrderedDict()
 
     def latest_capture(self):
@@ -227,9 +235,14 @@ class WebcamFeed:
         url = self.image_url(slug, timestamp)
         if url is None:
             return None
-        resp = self._session.get(url, timeout=TIMEOUT)
-        resp.raise_for_status()
-        data = make_thumbnail(resp.content)
+        with self._render_lock:
+            with self._thumb_lock:
+                if key in self._thumbs:
+                    return self._thumbs[key]
+            resp = self._session.get(url, timeout=TIMEOUT)
+            resp.raise_for_status()
+            data = make_thumbnail(resp.content)
+            del resp
 
         with self._thumb_lock:
             self._thumbs[key] = data

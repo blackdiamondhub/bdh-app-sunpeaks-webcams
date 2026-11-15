@@ -23,6 +23,17 @@ Tiles load `thumb/<slug>/<timestamp>.jpg`: a 1280 px JPEG (~60 KB)
 rendered once per capture and served as immutable. The originals are
 3-4K (up to ~2 MB) and load only in the viewer.
 
+## Container (hub API 2)
+
+Since 2.0.0 the app runs in its own container: no broker permissions,
+`network: outbound` (it fetches sunpeaksresort.com), `lifecycle: on_demand`,
+`memory_mb: 96`. The hub pulls the `backgrounds` provider from the
+container, so the feed starts on the first request after the app starts.
+`scripts/container_smoke.sh` (run in CI) installs the wheel into an image
+derived from the hub's app runtime, starts it read-only under the memory
+limit, checks `/_bdh/health`, the page, `get_webcams/` and a static file,
+and prints its memory use.
+
 ## Development
 
 CI (`.github/workflows/ci.yml`) uses the reusable `app-ci.yml` from
