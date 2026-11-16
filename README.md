@@ -29,10 +29,7 @@ Since 2.0.0 the app runs in its own container: no broker permissions,
 `network: outbound` (it fetches sunpeaksresort.com), `lifecycle: on_demand`,
 `memory_mb: 96`. The hub pulls the `backgrounds` provider from the
 container, so the feed starts on the first request after the app starts.
-`scripts/container_smoke.sh` (run in CI) installs the wheel into an image
-derived from the hub's app runtime, starts it read-only under the memory
-limit, checks `/_bdh/health`, the page, `get_webcams/` and a static file,
-and prints its memory use.
+CI (`hub / image`, from bdh-sdk's app-ci) builds the app image and smoke-tests it the way the supervisor runs it.
 
 ## Development
 
