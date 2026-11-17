@@ -11,6 +11,7 @@ on:
 
 jobs:
   hub:
-    uses: blackdiamondlodge/bdh-sdk/.github/workflows/app-ci.yml@v0
+    uses: blackdiamondlodge/bdh-sdk/.github/workflows/app-ci.yml@bc516bc93fd3f36066881f2a350294c1ea6e5330
     with:
       app_id: sunpeaks_webcams
+      stack_e2e: true
