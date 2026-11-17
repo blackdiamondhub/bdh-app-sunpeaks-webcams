@@ -212,15 +212,20 @@ class WebcamEndpointTests(TestCase):
             failed = self.client.get(f'/sunpeaks_webcams/thumb/crystal-bowl/{T0}.jpg')
             self.assertRedirects(failed, f'{IMG_BASE}a.jpg?timestamp={T0}', fetch_redirect_response=False)
 
-    def test_latest_redirects_to_newest_capture(self):
-        with self._feed():
-            from sunpeaks_webcams import views
-            cams, _ = views.feed.get()
+    def test_latest_serves_newest_capture_bytes(self):
+        # The hub's raw proxy (screensaver backgrounds) rejects redirects, so
+        # `latest` must answer with the image itself, never a 3xx.
+        buf = io.BytesIO()
+        Image.new('RGB', (64, 36)).save(buf, 'JPEG')
+        with self._feed(FakeResponse(200, buf.getvalue()), FakeResponse(500)) as feed:
             resp = self.client.get('/sunpeaks_webcams/latest/sundance.jpg')
             self.assertEqual(self.client.get('/sunpeaks_webcams/latest/nope.jpg').status_code, 404)
-        sundance = next(c for c in cams if c['slug'] == 'sundance')
-        self.assertRedirects(resp, sundance['image_url'], fetch_redirect_response=False)
+            failed = self.client.get('/sunpeaks_webcams/latest/crystal-bowl.jpg')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'image/jpeg')
         self.assertIn('no-cache', resp['Cache-Control'])
+        self.assertEqual(feed._session.calls[1][0], f'{IMG_BASE}b.jpg?timestamp={T0 + 5}')
+        self.assertEqual(failed.status_code, 502)
 
     def test_backgrounds_provider(self):
         from sunpeaks_webcams import provides
