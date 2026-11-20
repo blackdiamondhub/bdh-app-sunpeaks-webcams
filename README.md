@@ -27,8 +27,9 @@ rendered once per capture and served as immutable. The originals are
 
 Since 2.0.0 the app runs in its own container: no broker permissions,
 `network: outbound` (it fetches sunpeaksresort.com), `lifecycle: on_demand`,
-`memory_mb: 96`. The hub pulls the `backgrounds` provider from the
-container, so the feed starts on the first request after the app starts.
+`memory_mb: 96`. It provides one screen saver source, "Mountain cams" (live, one image per
+camera; `saver` provider). The hub pulls it from the container, so the feed
+starts on the first request after the app starts.
 CI (`hub / image`, from bdh-sdk's app-ci) builds the app image and smoke-tests it the way the supervisor runs it.
 
 ## Development
