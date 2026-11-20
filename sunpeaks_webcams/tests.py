@@ -212,15 +212,38 @@ class WebcamEndpointTests(TestCase):
             failed = self.client.get(f'/sunpeaks_webcams/thumb/crystal-bowl/{T0}.jpg')
             self.assertRedirects(failed, f'{IMG_BASE}a.jpg?timestamp={T0}', fetch_redirect_response=False)
 
-    def test_latest_redirects_to_newest_capture(self):
-        with self._feed():
+    def test_latest_serves_newest_capture(self):
+        # The hub's media proxy (the saver's live cam) drops redirects, so this
+        # must be the image itself, fetched once per capture.
+        jpg = FakeResponse(200, b'\xff\xd8newest', {'Content-Type': 'image/jpeg'})
+        with self._feed(jpg):
             from sunpeaks_webcams import views
             cams, _ = views.feed.get()
             resp = self.client.get('/sunpeaks_webcams/latest/sundance.jpg')
+            again = self.client.get('/sunpeaks_webcams/latest/sundance.jpg')
             self.assertEqual(self.client.get('/sunpeaks_webcams/latest/nope.jpg').status_code, 404)
+            calls = views.feed._session.calls
         sundance = next(c for c in cams if c['slug'] == 'sundance')
-        self.assertRedirects(resp, sundance['image_url'], fetch_redirect_response=False)
+        for r in (resp, again):
+            self.assertEqual((r.status_code, r['Content-Type'], r.content), (200, 'image/jpeg', b'\xff\xd8newest'))
         self.assertIn('no-cache', resp['Cache-Control'])
+        self.assertEqual([url for url, _ in calls[1:]], [sundance['image_url']])
+
+    def test_latest_upstream_failure_is_an_error_not_a_redirect(self):
+        with self._feed(FakeResponse(503)):
+            resp = self.client.get('/sunpeaks_webcams/latest/sundance.jpg')
+        self.assertEqual(resp.status_code, 502)
+
+    def test_background_urls_serve_images_directly(self):
+        # Whole class: every background URL is fetched through the hub's media
+        # proxy, which only passes a 200 image from the app (no redirects).
+        from sunpeaks_webcams import provides
+        jpg = [FakeResponse(200, b'\xff\xd8', {'Content-Type': 'image/jpeg'}) for _ in range(3)]
+        with self._feed(*jpg):
+            for bg in provides.backgrounds():
+                resp = self.client.get(bg.image_url)
+                self.assertEqual(resp.status_code, 200, bg.image_url)
+                self.assertTrue(resp['Content-Type'].startswith('image/'), bg.image_url)
 
     def test_backgrounds_provider(self):
         from sunpeaks_webcams import provides
