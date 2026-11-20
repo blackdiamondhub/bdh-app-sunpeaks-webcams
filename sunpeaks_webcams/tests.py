@@ -234,33 +234,39 @@ class WebcamEndpointTests(TestCase):
             resp = self.client.get('/sunpeaks_webcams/latest/sundance.jpg')
         self.assertEqual(resp.status_code, 502)
 
-    def test_background_urls_serve_images_directly(self):
-        # Whole class: every background URL is fetched through the hub's media
+    def test_saver_urls_serve_images_directly(self):
+        # Whole class: every saver image URL is fetched through the hub's media
         # proxy, which only passes a 200 image from the app (no redirects).
         from sunpeaks_webcams import provides
         jpg = [FakeResponse(200, b'\xff\xd8', {'Content-Type': 'image/jpeg'}) for _ in range(3)]
         with self._feed(*jpg):
-            for bg in provides.backgrounds():
+            for bg in provides.saver():
                 resp = self.client.get(bg.image_url)
                 self.assertEqual(resp.status_code, 200, bg.image_url)
                 self.assertTrue(resp['Content-Type'].startswith('image/'), bg.image_url)
 
-    def test_backgrounds_provider(self):
+    def test_saver_provider(self):
+        from bdh_sdk.hooks import saver_value
         from sunpeaks_webcams import provides
-        with self._feed():
-            bgs = provides.backgrounds()
-        self.assertEqual([(b.id, b.image_url, b.live) for b in bgs][:1],
-                         [('crystal-bowl', '/sunpeaks_webcams/latest/crystal-bowl.jpg', True)])
-        self.assertEqual(len(bgs), 3)
-
-    def test_backgrounds_put_sunburst_first(self):
-        from sunpeaks_webcams.provides import build_backgrounds
-        cams = [{'slug': 'village', 'camera_name': 'Village'}, {'slug': 'sb', 'camera_name': 'Top of Sunburst'}]
-        self.assertEqual([b.id for b in build_backgrounds(cams)], ['sb', 'village'])
-
-    def test_spec_declares_backgrounds(self):
         from sunpeaks_webcams.plugin import spec
-        self.assertEqual(spec.provides, {'backgrounds': 'sunpeaks_webcams.provides.backgrounds'})
+        with self._feed():
+            imgs = provides.saver()
+        self.assertEqual([(b.source, b.id, b.image_url, b.refresh_seconds) for b in imgs][:1],
+                         [('cams', 'crystal-bowl', '/sunpeaks_webcams/latest/crystal-bowl.jpg', 60)])
+        self.assertEqual(len(imgs), 3)
+        # Whole class: the SDK must keep every image (none dropped as undeclared/invalid).
+        self.assertEqual(len(saver_value(spec.saver_sources, imgs)), 3)
+
+    def test_saver_puts_sunburst_first(self):
+        from sunpeaks_webcams.provides import build_images
+        cams = [{'slug': 'village', 'camera_name': 'Village'}, {'slug': 'sb', 'camera_name': 'Top of Sunburst'}]
+        self.assertEqual([b.id for b in build_images(cams)], ['sb', 'village'])
+
+    def test_spec_declares_saver_source(self):
+        from sunpeaks_webcams.plugin import spec
+        self.assertEqual(spec.provides, {'saver': 'sunpeaks_webcams.provides.saver'})
+        self.assertEqual([(s.key, s.title, s.description, s.kind) for s in spec.saver_sources],
+                         [('cams', 'Mountain cams', 'Live webcams from around Sun Peaks', 'live')])
 
 
 class ManifestTests(SimpleTestCase):
@@ -274,7 +280,7 @@ class ManifestTests(SimpleTestCase):
         self.assertEqual(manifest['network'], 'outbound')
         self.assertEqual(manifest['lifecycle'], 'on_demand')
         self.assertEqual(manifest['memory_mb'], 96)
-        self.assertEqual(manifest['provides'], ['backgrounds'])
+        self.assertEqual(manifest['provides'], ['saver'])
 
 
 class CheckForNewWebcamsTests(TestCase):
