@@ -57,12 +57,16 @@ def webcam_thumbnail(request, slug, timestamp):
 
 @never_cache
 def webcam_latest(request, slug):
-    """A stable URL for a camera that always redirects to its newest capture."""
-    cams, _wait = feed.get()
-    cam = next((c for c in cams if c['slug'] == slug), None)
-    if cam is None:
+    """A stable URL for a camera that always shows its newest capture."""
+    try:
+        found = feed.latest_image(slug)
+    except requests.RequestException:
+        log.exception('Latest capture for %s failed', slug)
+        return HttpResponse(status=502)
+    if found is None:
         raise Http404
-    return HttpResponseRedirect(cam['image_url'])
+    data, content_type = found
+    return HttpResponse(data, content_type=content_type)
 
 
 def check_for_new_webcams():

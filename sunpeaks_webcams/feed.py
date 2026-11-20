@@ -166,6 +166,7 @@ class WebcamFeed:
         # once, and the app runs under a tight memory limit.
         self._render_lock = threading.Lock()
         self._thumbs = OrderedDict()
+        self._latest = {}
 
     def latest_capture(self):
         stamps = [int(c['timestamp']) for c in self._cams or [] if c.get('timestamp')]
@@ -223,6 +224,32 @@ class WebcamFeed:
         if cam is None:
             return None
         return f"{cam['image_url'].split('?', 1)[0]}?timestamp={timestamp}"
+
+    def latest_image(self, slug):
+        """(JPEG bytes, content type) of a camera's newest capture, or None for an unknown camera.
+
+        Served by the app itself, not a redirect: the hub's media proxy (the
+        screensaver's live cam) only passes through the app's own 200 responses.
+        """
+        cams, _ = self.get()
+        cam = next((c for c in cams if c['slug'] == slug), None)
+        if cam is None:
+            return None
+        url = cam['image_url']
+        with self._thumb_lock:
+            hit = self._latest.get(slug)
+            if hit and hit[0] == url:
+                return hit[1], hit[2]
+        resp = self._session.get(url, timeout=TIMEOUT)
+        resp.raise_for_status()
+        content_type = resp.headers.get('Content-Type', 'image/jpeg')
+        if not content_type.startswith('image/'):
+            raise requests.HTTPError(f'{url} is {content_type}, not an image')
+        with self._thumb_lock:
+            # One capture per camera: the saver re-fetches every minute but the
+            # cameras only update every few.
+            self._latest[slug] = (url, resp.content, content_type)
+            return resp.content, content_type
 
     def thumbnail(self, slug, timestamp):
         """Downscaled JPEG bytes for a camera capture, or None for an unknown camera."""
