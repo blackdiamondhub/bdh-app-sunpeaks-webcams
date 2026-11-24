@@ -1,9 +1,9 @@
 # bdh-app-sunpeaks-webcams
 
 Black Diamond Hub app: Sun Peaks resort webcam viewer. Moved out of
-[BlackDiamondHub](https://github.com/blackdiamondlodge/BlackDiamondHub) and
+[BlackDiamondHub](https://github.com/blackdiamondhub/BlackDiamondHub) and
 installed into the hub through the `blackdiamondhub.plugins` entry point
-(see [bdh-sdk](https://github.com/blackdiamondlodge/bdh-sdk)).
+(see [bdh-sdk](https://github.com/blackdiamondhub/bdh-sdk)).
 
 Page: `/sunpeaks_webcams/`. Cameras are grouped into elevation bands
 (Alpine / Mid-mountain / Village); tap a tile for a full-size viewer.
